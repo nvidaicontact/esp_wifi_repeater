@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>WiFi Repeater | Admin Panel</title>
+<style>
+/* ================= Theme (dark only) ================= */
+:root{
+  --bg:#0B0E14; --card:#1A1F2B; --txt:#E6EDF3; --mut:#8B98A9;
+  --acc:#00E5FF; --acc-d:#062A33; --bord:rgba(0,229,255,.28); --glow:rgba(0,229,255,.14);
+  --ok:#2EE59D; --err:#FF5C7A; --warn:#FFC857; --sh:0 4px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+body{
+  background:var(--bg);color:var(--txt);min-height:100vh;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+}
+/* ================= Header ================= */
+header{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+  gap:.8rem;flex-wrap:wrap;padding:.8rem 1.2rem;background:var(--bg);
+  border-bottom:1px solid var(--bord);backdrop-filter:blur(6px);
+}
+.brand{display:flex;align-items:center;gap:.6rem}
+.brand h1{font-size:1.05rem;font-weight:700}
+.brand svg{filter:drop-shadow(0 0 6px var(--glow))}
+.status{display:flex;align-items:center;gap:.45rem;font-size:.85rem;color:var(--mut)}
+.dot{width:10px;height:10px;border-radius:50%;background:#666;display:inline-block}
+.dot.on{background:var(--ok);animation:pulse 1.6s infinite}
+.dot.off{background:var(--err)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(46,229,157,.5)}50%{box-shadow:0 0 0 6px rgba(46,229,157,0)}}
+/* ================= Layout ================= */
+main{max-width:1080px;margin:0 auto;padding:1.2rem;display:flex;flex-direction:column;gap:1.1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:1.1rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.card{
+  background:var(--card);border:1px solid var(--bord);border-radius:14px;padding:1.1rem;box-shadow:var(--sh);
+  animation:rise .5s both;animation-delay:calc(var(--i,0)*.09s);transition:border-color .25s,box-shadow .25s;
+}
+.card:hover{border-color:var(--acc);box-shadow:0 0 18px var(--glow)}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.card h2{font-size:.9rem;color:var(--acc);margin-bottom:.9rem;font-weight:600}
+.kv{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.38rem 0;
+  border-bottom:1px dashed rgba(128,150,170,.15);font-size:.9rem}
+.kv:last-child{border-bottom:none}
+.kv .l{color:var(--mut);font-size:.82rem}
+.kv .v{font-weight:600}
+/* Signal bar */
+.bar{height:8px;border-radius:6px;background:rgba(128,150,170,.18);overflow:hidden;flex:1;min-width:80px}
+.bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--acc),#4dff9d);
+  transition:width .6s ease;width:0}
+/* ================= Buttons & forms ================= */
+.btn{font:inherit;color:var(--txt);background:transparent;border:1px solid var(--bord);
+  border-radius:10px;padding:.55rem 1.1rem;cursor:pointer;transition:.22s;font-size:.88rem}
+.btn:hover:not(:disabled){border-color:var(--acc);box-shadow:0 0 12px var(--glow)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-acc{background:var(--acc);border-color:var(--acc);color:var(--acc-d);font-weight:700}
+.btn-acc:hover:not(:disabled){filter:brightness(1.1)}
+.btn-danger{border-color:var(--err);color:var(--err)}
+.btn-danger:hover:not(:disabled){background:var(--err);color:#fff;box-shadow:0 0 12px rgba(255,92,122,.35)}
+.btn-sm{padding:.3rem .8rem;font-size:.78rem;border-radius:8px}
+.btn-big{width:100%;padding:1rem;font-size:1.05rem;font-weight:800;
+  box-shadow:0 0 26px var(--glow);animation:rise .5s both;animation-delay:.3s}
+label{display:block;font-size:.8rem;color:var(--mut);margin:.7rem 0 .3rem}
+input{
+  width:100%;background:var(--bg);border:1px solid var(--bord);color:var(--txt);
+  padding:.6rem .8rem;border-radius:10px;font:inherit;font-size:.9rem;transition:.2s;
+}
+input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 10px var(--glow)}
+.frow{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
+.frow .btn{flex:1;min-width:110px}
+/* ================= Scan dropdown (below the scan button) ================= */
+.scanbox{
+  margin-top:.9rem;border:1px solid var(--bord);border-radius:10px;background:var(--bg);
+  max-height:225px;overflow-y:auto;animation:rise .3s both;
+}
+.net{display:flex;justify-content:space-between;align-items:center;gap:.5rem;width:100%;
+  background:none;border:none;border-radius:8px;color:var(--txt);font:inherit;font-size:.87rem;
+  padding:.65rem .8rem;cursor:pointer;transition:.18s;text-align:left}
+.net:hover{background:var(--glow);outline:1px solid var(--acc)}
+.nmeta{color:var(--mut);font-size:.75rem;white-space:nowrap}
+/* ================= Clients table ================= */
+.twrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.86rem;min-width:520px}
+th,td{padding:.6rem .5rem;border-bottom:1px solid var(--bord);text-align:left}
+th{color:var(--mut);font-weight:600;font-size:.78rem}
+td.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
+.empty{color:var(--mut);text-align:center;padding:1rem 0;font-size:.85rem}
+/* ================= Console ================= */
+#logBox{
+  background:var(--bg);border:1px solid var(--bord);border-radius:10px;height:170px;overflow-y:auto;
+  padding:.7rem .9rem;font-family:ui-monospace,Consolas,monospace;font-size:.78rem;line-height:1.8;
+}
+.ln.ok{color:var(--ok)} .ln.err{color:var(--err)} .ln{color:var(--txt)}
+.lt{color:var(--mut);margin-right:.6rem}
+/* ================= Toast & overlay ================= */
+#toast{
+  position:fixed;bottom:1.4rem;left:50%;transform:translate(-50%,20px);opacity:0;z-index:60;
+  background:var(--card);border:1px solid var(--acc);color:var(--txt);padding:.65rem 1.4rem;border-radius:12px;
+  font-size:.88rem;box-shadow:0 0 20px var(--glow);transition:.3s;pointer-events:none;
+}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#overlay{position:fixed;inset:0;background:rgba(4,8,14,.78);backdrop-filter:blur(4px);z-index:70;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;animation:fade .25s both}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.spin{width:46px;height:46px;border:3px solid var(--bord);border-top-color:var(--acc);border-radius:50%;animation:rot .9s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+#ovTxt{color:var(--txt);font-size:.95rem}
+footer{text-align:center;color:var(--mut);font-size:.72rem;padding:1rem}
+</style>
+</head>
+<body>
+
+<!-- ===== Header: logo + device name + link status ===== -->
+<header>
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linecap="round">
+      <path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1.4" fill="var(--acc)"/>
+    </svg>
+    <h1>WiFi Repeater</h1>
+  </div>
+  <span class="status"><i id="dot" class="dot off"></i><span id="stTxt">Offline</span></span>
+</header>
+
+<main>
+  <!-- ===== Status cards ===== -->
+  <section class="grid">
+    <article class="card" style="--i:0">
+      <h2>📡 Upstream Connection (STA)</h2>
+      <div class="kv"><span class="l">SSID</span><span class="v" id="staSsid">—</span></div>
+      <div class="kv"><span class="l">Signal</span>
+        <div class="bar"><i id="rssiBar"></i></div><span class="v" id="rssiTxt" style="font-size:.78rem">—</span>
+      </div>
+      <div class="kv"><span class="l">IP Address</span><span class="v" id="staIp">—</span></div>
+    </article>
+
+    <article class="card" style="--i:1">
+      <h2>🛜 Local Network (AP)</h2>
+      <div class="kv"><span class="l">SSID</span><span class="v" id="apSsid">—</span></div>
+      <div class="kv"><span class="l">Clients</span><span class="v" id="apCnt">0</span></div>
+      <div class="kv"><span class="l">Security</span><span class="v" id="apSec">—</span></div>
+    </article>
+
+    <article class="card" style="--i:2">
+      <h2>⚙️ System Status</h2>
+      <div class="kv"><span class="l">Uptime</span><span class="v" id="upT">—</span></div>
+      <div class="kv"><span class="l">Free Heap</span><span class="v" id="heap">—</span></div>
+      <div class="kv"><span class="l">Firmware</span><span class="v" id="ver">—</span></div>
+    </article>
+  </section>
+
+  <!-- ===== Connected clients ===== -->
+  <section class="card" style="--i:3">
+    <h2>👥 Connected Clients</h2>
+    <div class="twrap">
+      <table>
+        <thead><tr><th>Device Name</th><th>IP Address</th><th>MAC Address</th><th>Action</th></tr></thead>
+        <tbody id="clBody"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== Quick settings ===== -->
+  <section class="grid2">
+    <div class="card" style="--i:4">
+      <h2>📶 STA Settings (Router Connection)</h2>
+      <label for="f_ssid_sta">Router SSID</label>
+      <input id="f_ssid_sta" autocomplete="off" placeholder="Upstream network name">
+      <label for="f_pass_sta">Password</label>
+      <input id="f_pass_sta" type="password" autocomplete="new-password" placeholder="********">
+      <div class="frow">
+        <button id="scanBtn" class="btn">🔍 Scan Networks</button>
+        <button id="btnSta" class="btn btn-acc">Connect</button>
+      </div>
+      <!-- Scan results dropdown (opens below the buttons) -->
+      <div id="scanBox" class="scanbox" hidden><div id="scanList"></div></div>
+    </div>
+    <div class="card" style="--i:5">
+      <h2>📡 AP Settings (Local Network)</h2>
+      <label for="f_ssid_ap">Device SSID</label>
+      <input id="f_ssid_ap" autocomplete="off" placeholder="Repeater network name">
+      <label for="f_pass_ap">Password (empty = open network)</label>
+      <input id="f_pass_ap" type="password" autocomplete="new-password" placeholder="Minimum 8 characters">
+      <div class="frow"><button id="btnAp" class="btn btn-acc">💾 Save</button></div>
+    </div>
+  </section>
+
+  <!-- ===== Save all + reboot ===== -->
+  <button id="btnAll" class="btn btn-acc btn-big">🔄 Save &amp; Reboot</button>
+
+  <!-- ===== Console ===== -->
+  <section class="card" style="--i:6">
+    <h2>🖥️ Event Console</h2>
+    <div id="logBox"></div>
+  </section>
+</main>
+
+<footer>ESP8266 L2 Bridge Repeater — Web Panel</footer>
+
+<!-- Loading overlay -->
+<div id="overlay" hidden><div class="spin"></div><p id="ovTxt"></p></div>
+<!-- Toast message -->
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* =====================================================
+   WiFi Repeater admin panel — ESP8266 (Vanilla JS)
+   Talks to the device via Fetch + JSON only.
+   Endpoints: /api/status /api/scan /api/config /api/kick /api/command
+===================================================== */
+const $=id=>document.getElementById(id);
+const logBox=$('logBox');
+const state={apPass:null};   // AP password state, used to show Secured/Open
+let online=null,             // current link state (to detect transitions)
+    backoff=5000,            // polling interval; doubles on error (max 30s)
+    timer=null, toastT=null;
+
+/* ---------- Helpers ---------- */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// Map RSSI to a quality percentage (range -100 .. -50 dBm)
+const rssiPct=r=>Math.max(0,Math.min(100,2*(r+100)));
+
+// API call with timeout so hung requests never block the bridge
+async function api(path,opt={},timeout=6000){
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),timeout);
+  try{
+    const r=await fetch(path,Object.assign({signal:c.signal,headers:{'Content-Type':'application/json'}},opt));
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return await r.json();
+  }catch(e){throw e.name==='AbortError'?new Error('Timeout'):e;}
+  finally{clearTimeout(t);}
+}
+
+/* ---------- Console log (max 60 lines; oldest removed) ---------- */
+function log(msg,type=''){
+  const d=document.createElement('div');d.className='ln '+type;
+  const t=document.createElement('span');t.className='lt';
+  t.textContent=new Date().toLocaleTimeString('en-GB');
+  d.appendChild(t);d.appendChild(document.createTextNode(' '+msg));
+  logBox.appendChild(d);
+  while(logBox.children.length>60)logBox.firstChild.remove();
+  logBox.scrollTop=logBox.scrollHeight;
+}
+function toast(msg){
+  const t=$('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2500);
+}
+function showOverlay(msg){$('ovTxt').textContent=msg;$('overlay').hidden=false;}
+function hideOverlay(){$('overlay').hidden=true;}
+
+/* ---------- Online / Offline indicator ---------- */
+function setOnline(v){
+  if(online===v)return;online=v;
+  $('dot').className='dot '+(v?'on':'off');
+  $('stTxt').textContent=v?'Online':'Offline';
+  if(v){hideOverlay();log('Connected to device','ok');}
+  else log('Device unreachable; retrying...','err');
+}
+
+/* ---------- Value formatters ---------- */
+function fmtUp(sec){
+  if(typeof sec!=='number'||isNaN(sec))return sec!=null?String(sec):'—';
+  const d=Math.floor(sec/86400),h=Math.floor(sec%86400/3600),m=Math.floor(sec%3600/60);
+  return (d?d+' days ':'')+(h?h+' hrs ':'')+m+' min';
+}
+function fmtB(b){
+  if(b==null)return'—';
+  if(b<1048576)return (b/1024).toFixed(1)+' KiB';
+  return (b/1048576).toFixed(2)+' MiB';
+}
+function updateSec(){
+  $('apSec').textContent=state.apPass==null?'—':(state.apPass?'🔒 Secured':'🔓 Open');
+}
+
+/* ---------- Render data from /api/status ---------- */
+function renderStatus(d){
+  const s=d.sta||{},a=d.ap||{},y=d.system||{};
+  $('staSsid').textContent=s.ssid||'—';
+  $('staIp').textContent=s.ip||'—';
+  $('rssiBar').style.width=rssiPct(s.rssi??-100)+'%';
+  $('rssiTxt').textContent=s.rssi!=null?s.rssi+' dBm':'—';
+  $('apSsid').textContent=a.ssid||'—';
+  const cl=a.clients||[];
+  $('apCnt').textContent=cl.length;
+  if(a.secure!==undefined)state.apPass=a.secure; // device may report security directly
+  updateSec();
+  renderClients(cl);
+  $('upT').textContent=fmtUp(y.uptime);
+  $('heap').textContent=fmtB(y.freeHeap);
+  $('ver').textContent=y.version||'—';
+}
+function renderClients(list){
+  const tb=$('clBody');tb.innerHTML='';
+  if(!list.length){tb.innerHTML='<tr><td colspan="4" class="empty">No clients connected</td></tr>';return;}
+  for(const c of list){
+    const tr=document.createElement('tr');
+    const mk=(txt,cls)=>{const td=document.createElement('td');if(cls)td.className=cls;td.textContent=txt;return td;};
+    tr.appendChild(mk(c.name||'—'));
+    tr.appendChild(mk(c.ip||'—','mono'));
+    tr.appendChild(mk(c.mac||'—','mono'));
+    const td=document.createElement('td'),b=document.createElement('button');
+    b.className='btn btn-sm btn-danger';b.textContent='Kick';b.dataset.mac=c.mac||'';
+    td.appendChild(b);tr.appendChild(td);tb.appendChild(tr);
+  }
+}
+
+/* ---------- Auto polling of /api/status with backoff ---------- */
+async function refresh(){
+  try{
+    const d=await api('/api/status');
+    backoff=5000;                 // success -> back to the normal 5s interval
+    setOnline(true);renderStatus(d);
+  }catch(e){
+    backoff=Math.min(backoff*2,30000); // error (e.g. 503) -> double delay, cap 30s
+    setOnline(false);
+  }
+  clearTimeout(timer);timer=setTimeout(refresh,backoff);
+}
+
+/* ---------- Kick a client (event delegation) ---------- */
+$('clBody').addEventListener('click',async e=>{
+  const b=e.target.closest('button[data-mac]');if(!b)return;
+  const mac=b.dataset.mac;b.disabled=true;b.textContent='...';
+  log('Kicking client '+mac);
+  try{
+    await api('/api/kick',{method:'POST',body:JSON.stringify({mac})});
+    log('Client '+mac+' kicked','ok');
+    setTimeout(refresh,800);      // quick refresh of the client list
+  }catch(err){
+    log('Failed to kick client: '+err.message,'err');
+    b.disabled=false;b.textContent='Kick';
+  }
+});
+
+/* ---------- Network scan: dropdown below the scan button ---------- */
+$('scanBtn').onclick=async()=>{
+  const box=$('scanBox'),list=$('scanList');
+  box.hidden=false;                                  // open the dropdown in place
+  list.innerHTML='<div class="empty">Scanning nearby networks...</div>';
+  log('Starting network scan');
+  try{
+    const nets=await api('/api/scan',{},12000);      // scanning takes time on the ESP
+    nets.sort((a,b)=>(b.rssi??-100)-(a.rssi??-100));
+    list.innerHTML='';
+    if(!nets.length){list.innerHTML='<div class="empty">No networks found</div>';return;}
+    log(nets.length+' network(s) found','ok');
+    for(const n of nets){
+      const it=document.createElement('button');it.className='net';
+      it.innerHTML='<span>'+esc(n.ssid||'(Hidden SSID)')+'</span>'+
+        '<span class="nmeta">'+((n.encryption&&n.encryption!=='OPEN')?'🔒':'🔓')+' '+(n.rssi??'?')+' dBm</span>';
+      it.onclick=()=>{                               // pick a network
+        $('f_ssid_sta').value=n.ssid||'';            // auto-fill the SSID field
+        box.hidden=true;                             // close the dropdown
+        log('Selected network: '+(n.ssid||'(Hidden)'));
+        toast('SSID selected — enter the password');
+        $('f_pass_sta').focus();                     // wait for the password
+      };
+      list.appendChild(it);
+    }
+  }catch(e){
+    list.innerHTML='<div class="empty">Scan failed: '+esc(e.message)+'</div>';
+    log('Scan failed: '+e.message,'err');
+  }
+};
+
+/* ---------- Load / save configuration ---------- */
+async function loadConfig(){
+  try{
+    const c=await api('/api/config');
+    $('f_ssid_sta').value=c.sta_ssid||'';
+    $('f_pass_sta').value=c.sta_password||'';
+    $('f_ssid_ap').value=c.ap_ssid||'';
+    $('f_pass_ap').value=c.ap_password||'';
+    state.apPass=c.ap_password||'';updateSec();
+  }catch(e){log('Failed to load current settings','err');}
+}
+
+// Save settings; when reboot=true the reset command is also sent
+async function saveConfig(body,reboot=false){
+  $('btnAll').disabled=true;
+  try{
+    await api('/api/config',{method:'POST',body:JSON.stringify(body)});
+    if(body.ap_password!==undefined){state.apPass=body.ap_password;updateSec();}
+    log('Settings saved successfully','ok');
+    toast('✓ Settings saved');
+    if(reboot){
+      showOverlay('Rebooting device...');
+      log('Reset command sent; waiting for the device to come back...');
+      try{await api('/api/command',{method:'POST',body:JSON.stringify({cmd:'reset'})});}
+      catch(e){/* link drops right after reset; expected */}
+      backoff=5000;setOnline(false);   // keep polling until the device returns
+    }else{
+      showOverlay('Refreshing panel...'); // after 2s the page reloads
+      setTimeout(()=>location.reload(),2000);
+    }
+  }catch(e){
+    log('Failed to save settings: '+e.message,'err');
+    toast('Error while saving!');
+  }
+  $('btnAll').disabled=false;
+}
+
+$('btnSta').onclick=()=>saveConfig({sta_ssid:$('f_ssid_sta').value,sta_password:$('f_pass_sta').value});
+$('btnAp').onclick =()=>saveConfig({ap_ssid:$('f_ssid_ap').value,ap_password:$('f_pass_ap').value});
+$('btnAll').onclick=()=>saveConfig({
+  sta_ssid:$('f_ssid_sta').value,sta_password:$('f_pass_sta').value,
+  ap_ssid:$('f_ssid_ap').value,ap_password:$('f_pass_ap').value
+},true);
+
+/* ---------- Boot ---------- */
+log('Admin panel started');
+loadConfig();
+refresh();
+</script>
+</body>
+</html>
