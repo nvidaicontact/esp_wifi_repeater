@@ -35,6 +35,8 @@
 #include "ringbuf.h"
 #include "user_config.h"
 #include "config_flash.h"
+#include "api.h"
+#include "webpanel.h"
 #if MDNS_REPEATER
 #include "lwip/mdns.h"
 #endif
@@ -3443,6 +3445,13 @@ static void ICACHE_FLASH_ATTR web_config_client_recv_cb(void *arg,
                                                         unsigned short length)
 {
     struct espconn *pespconn = (struct espconn *)arg;
+    
+    // First check if this is an API request
+    if (api_handle_request(pespconn, data, length)) {
+        return;  // API handled it
+    }
+    
+    // Legacy form-based handler
     char *kv, *sv;
     bool do_reset = false;
     char *token[1];
@@ -3584,31 +3593,8 @@ static void ICACHE_FLASH_ATTR web_config_client_connected_cb(void *arg)
 
     if (!config.locked)
     {
-        static const uint8_t config_page_str[] ICACHE_RODATA_ATTR STORE_ATTR = CONFIG_PAGE;
-        uint32_t slen = (sizeof(config_page_str) + 4) & ~3;
-        uint8_t *config_page = (char *)os_malloc(slen);
-        if (config_page == NULL)
-            return;
-        os_memcpy(config_page, config_page_str, slen);
-
-        uint8_t *page_buf = (char *)os_malloc(slen + 200);
-        if (page_buf == NULL)
-            return;
-        os_sprintf(page_buf, config_page, config.ssid, config.password,
-#ifndef REPEATER_MODE
-                   config.automesh_mode != AUTOMESH_OFF ? "checked" : "",
-#endif
-                   config.ap_ssid, config.ap_password,
-                   config.ap_open ? " selected" : "", config.ap_open ? "" : " selected"
-#ifndef REPEATER_MODE
-                   , IP2STR(&config.network_addr)
-#endif
-        );
-        os_free(config_page);
-
-        espconn_send(pespconn, page_buf, os_strlen(page_buf));
-
-        os_free(page_buf);
+        // Serve the new modern web panel
+        espconn_send(pespconn, (uint8_t *)webpanel_html, webpanel_html_len);
     }
     else
     {
